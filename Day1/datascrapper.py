@@ -3,41 +3,36 @@
 
 from selenium import webdriver
 import os
-from webdriver_manager.chrome import ChromeDriverManager
 import time
 from fake_useragent import UserAgent
-from selenium.webdriver.support.ui import Select
-import numpy as np
 import pandas as pd
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.service import Service
+from multiprocessing import Process
 import warnings
-from multiprocessing import Pool
+
 warnings.filterwarnings("ignore")
 
 # Chrome options
 options = webdriver.ChromeOptions()
 
-class scrapper():
+class Scrapper():
     def __init__(self, url):
         ua = UserAgent()
         options.add_argument('--no-sandbox')
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument(f'user-agent={ua.random}')  # add random user agent
-        service = Service("/Users/icarus/Downloads/chromedriver-mac-arm64 2/chromedriver")  # replace with your actual path
+        options.add_argument(f'user-agent={ua.random}')  # Add random user agent
+        service = Service("/Users/icarus/Downloads/chromedriver-mac-arm64 2/chromedriver")  # Your specific path
         self.driver = webdriver.Chrome(service=service, options=options)
         self.url = url
         self.driver.get(url)
         time.sleep(2)
         # Navigate to the history tab
-        k = WebDriverWait(self.driver, 10).until(
-                    EC.visibility_of_element_located((By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkHistoryTab"]'))).click()
-        #self.driver.find_element("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkHistoryTab"]').click()
-        #self.driver.implicitly_wait(2)
+        self.driver.find_element("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkHistoryTab"]').click()
+        self.driver.implicitly_wait(2)
 
     def df(self):
         # Extract data from the page
@@ -66,18 +61,17 @@ class scrapper():
                 'Quantity': Quantity[i].text,
                 'Turnover': Turnover[i].text
             }
-        # if data is sorted according to Date using coerce, will cause incorrect data
         return data
 
     def datas(self):
-        print("Started")
+        print("Started scraping for:", self.url)
         data = []
         data.append(self.df())
 
         while True:
             try:
                 # Wait until the "Next Page" button is clickable
-                k = WebDriverWait(self.driver, 10).until(
+                k = WebDriverWait(self.driver, 20).until(
                     EC.visibility_of_element_located((By.XPATH, '//*[@title = "Next Page"]'))
                 )
                 
@@ -89,9 +83,8 @@ class scrapper():
                 scrap = self.df()
                 data.append(scrap)
 
-            except:
-                # If the "Next Page" button is not found, you've reached the last page
-                print("No more pages. Finished.")
+            except Exception as e:
+                print("No more pages. Finished. Error:", e)
                 break
 
         # Concatenate all the scraped data into a single DataFrame
@@ -99,22 +92,23 @@ class scrapper():
         
         return data
 
-
-# Define the stock symbols
-stock = ['NABIL']
-
-def save_datas(i):
-    x = 'https://merolagani.com/CompanyDetail.aspx?symbol='
-    x += str(i)
-    y = scrapper(x).datas()
-    filename = f"{i}.csv"
+def save_datas(symbol):
+    url = f'https://merolagani.com/CompanyDetail.aspx?symbol={symbol}'
+    scrapper = Scrapper(url)
+    data = scrapper.datas()
+    filename = f"{symbol}.csv"
     path = os.path.join(os.getcwd(), filename)
-    y.to_csv(path, index=None, header=True)
-    print(f"Data saved for {i} in {path}")
+    data.to_csv(path, index=False)
+    print(f"Data saved for {symbol} in {path}")
 
+if __name__ == '__main__':
+    stock_symbols = ['NABIL', 'MNBBL']
+    processes = []
 
-if __name__ == '__main__':  
-        with Pool() as pool:
-            pool.map(save_datas, stock)
-# call the same function with different data sequentially
+    for symbol in stock_symbols:
+        process = Process(target=save_datas, args=(symbol,))
+        processes.append(process)
+        process.start()
 
+    for process in processes:
+        process.join()  # Wait for all processes to finish
