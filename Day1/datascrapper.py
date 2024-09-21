@@ -8,6 +8,7 @@ from fake_useragent import UserAgent
 import pandas as pd
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.service import Service
@@ -29,39 +30,62 @@ class Scrapper():
         self.driver = webdriver.Chrome(service=service, options=options)
         self.url = url
         self.driver.get(url)
-        time.sleep(2)
         # Navigate to the history tab
         self.driver.find_element("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_lnkHistoryTab"]').click()
         self.driver.implicitly_wait(2)
 
     def df(self):
-        # Extract data from the page
-        time.sleep(2)
-        Date = self.driver.find_elements("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice"]/div[2]/table/tbody/tr/td[2]')
-        LTP = self.driver.find_elements("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice"]/div[2]/table/tbody/tr/td[3]')
-        Change = self.driver.find_elements("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice"]/div[2]/table/tbody/tr/td[4]')
-        High = self.driver.find_elements("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice"]/div[2]/table/tbody/tr/td[5]')
-        Low = self.driver.find_elements("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice"]/div[2]/table/tbody/tr/td[6]')
-        Open = self.driver.find_elements("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice"]/div[2]/table/tbody/tr/td[7]')
-        Quantity = self.driver.find_elements("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice"]/div[2]/table/tbody/tr/td[8]')
-        Turnover = self.driver.find_elements("xpath", '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice"]/div[2]/table/tbody/tr/td[9]')
-        
-        # Initialize DataFrame
-        data = pd.DataFrame(columns=['Date', 'LTP', 'Change', 'High', 'Low', 'Open', 'Quantity', 'Turnover'])
-        
-        # Collect the data in a DataFrame
-        for i in range(len(Date)):
-            data.loc[len(data)] = {
-                'Date': Date[i].text,
-                'LTP': LTP[i].text,
-                'Change': Change[i].text,
-                'High': High[i].text,
-                'Low': Low[i].text,
-                'Open': Open[i].text,
-                'Quantity': Quantity[i].text,
-                'Turnover': Turnover[i].text
-            }
-        return data
+        attempt = 1  # Initialize attempt counter
+        while True:  # Infinite loop, will break when successful
+            try:
+                # Wait for the table to load
+                WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice"]/div[2]/table/tbody/tr'))
+                )
+                
+                # Extract all rows from the table
+                rows = self.driver.find_elements(By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_CompanyDetail1_divDataPrice"]/div[2]/table/tbody/tr')
+                
+                # Initialize list to collect data
+                data = []
+                
+                # Iterate over rows and extract the required data
+                for row in rows:
+                    cols = row.find_elements(By.TAG_NAME, "td")
+                    if len(cols) >= 9:  # Ensure there are enough columns
+                        data.append({
+                            'Date': cols[1].text,
+                            'LTP': cols[2].text,
+                            'Change': cols[3].text,
+                            'High': cols[4].text,
+                            'Low': cols[5].text,
+                            'Open': cols[6].text,
+                            'Quantity': cols[7].text,
+                            'Turnover': cols[8].text
+                        })
+                
+                # Create DataFrame from the collected data
+                df = pd.DataFrame(data)
+
+                # Convert the 'Date' column to a datetime object for proper sorting
+                df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')  # Adjust format as necessary
+
+                # Sort the DataFrame by 'Date' in ascending order (oldest to newest)
+                df = df.sort_values(by='Date', ascending=True)
+
+                # Break out of the retry loop if no exception occurred
+                break
+            
+            except StaleElementReferenceException as e:
+                print(f"Stale element encountered, retrying... (attempt {attempt})")
+                attempt += 1  # Increment the attempt counter
+                time.sleep(2)  # Wait before retrying
+
+        # Return the DataFrame after successful extraction
+        return df
+
+
+
 
     def datas(self):
         print("Started scraping for:", self.url)
@@ -102,7 +126,7 @@ def save_datas(symbol):
     print(f"Data saved for {symbol} in {path}")
 
 if __name__ == '__main__':
-    stock_symbols = ['NABIL', 'MNBBL']
+    stock_symbols = ['KBL', 'EBL']
     processes = []
 
     for symbol in stock_symbols:
