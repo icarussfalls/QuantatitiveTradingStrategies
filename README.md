@@ -18,3 +18,15 @@ MACD remained a strong with 7x returns but it has higher volatility. (Sharpe of 
 RSI has bad metrics across the board.
 <img width="1016" alt="Screenshot 2024-09-21 at 10 10 17 PM" src="https://github.com/user-attachments/assets/fb7102a9-c1bd-4515-b285-e2e6844de993">
 
+Day 3: Creating Quantitative Strategies for NEPSE 🌟
+
+Today, I made significant strides in my journey to develop quantitative trading strategies for the Nepal Stock Exchange (NEPSE). Used AI to improve the readability of the code.
+
+🔍 Batch Scraping: I enhanced my data collection process by implementing batch scraping techniques, allowing me to gather floorsheet trading data for multiple stock symbols in one go. This not only saves time but also enables a more comprehensive analysis of market trends.
+
+💻 Key Highlights:
+Automated data extraction using Selenium and Python.
+Inputting date ranges to collect historical floorsheet trading data systematically.
+Efficiently managing multiple stock symbols in a single scraping session.
+📈 The data collected will be instrumental in developing robust quantitative models and strategies tailored for NEPSE. Excited to see where this journey leads!
+![alt text](<Screenshot 2024-09-22 at 2.56.16 PM.png>)

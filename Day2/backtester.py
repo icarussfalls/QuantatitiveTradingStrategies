@@ -115,7 +115,7 @@ def backtest_strategy(data, signals, strategy_name, min_holding_period=3, commis
     }, portfolio_value
 
 # Load your data
-data = pd.read_csv('/Users/icarus/Desktop/QuantatitiveTradingStrategies/API.csv')
+data = pd.read_csv('/Users/icarus/Desktop/QuantatitiveTradingStrategies/NFS.csv')
 data = data.sort_values(by='Date', ascending=True)
 data = data.set_index('Date')
 data['Close'] = pd.to_numeric(data['LTP'], errors='coerce')
