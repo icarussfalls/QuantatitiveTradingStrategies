@@ -17,6 +17,7 @@ class FloorsheetScrapper:
         ua = UserAgent()
         options = webdriver.ChromeOptions()
         options.add_argument('--no-sandbox')
+        options.add_argument('--headless')  # Run in headless mode for speed
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument(f'user-agent={ua.random}')
         service = Service("/Users/icarus/Downloads/chromedriver-mac-arm64 2/chromedriver")  # Adjust the path
@@ -27,9 +28,8 @@ class FloorsheetScrapper:
 
         # Input stock symbol
         self.driver.find_element(By.XPATH, '//*[@id="ctl00_ContentPlaceHolder1_ASCompanyFilter_txtAutoSuggest"]').send_keys(self.stock)
-    
+
     def set_date_and_search(self, date):
-        # Input date in mm/dd/yyyy format
         date_input_xpath = '//*[@id="ctl00_ContentPlaceHolder1_txtFloorsheetDateFilter"]'
         date_input = self.driver.find_element(By.XPATH, date_input_xpath)
         date_input.clear()
@@ -40,16 +40,13 @@ class FloorsheetScrapper:
 
     def close_popup(self):
         try:
-            # Adjust the XPath according to the actual pop-up structure
-            popup_close_button_xpath = '//*[@id="dismiss-button"]/div/span'  # Actual XPath to close Ad
-            WebDriverWait(self.driver, 5).until(
+            popup_close_button_xpath = '//*[@id="dismiss-button"]/div/span'  # Adjust the XPath according to the actual pop-up structure
+            WebDriverWait(self.driver, 2).until(
                 EC.element_to_be_clickable((By.XPATH, popup_close_button_xpath))
             ).click()
             print("Pop-up closed.")
-        except NoSuchElementException:
-            print("No pop-up to close.")
-        except Exception as e:
-            print(f"Error while trying to close pop-up: {e}")
+        except (NoSuchElementException, Exception):
+            pass  # No pop-up to close
 
     def attempt_scraping(self):
         self.close_popup()  # Close pop-up before scraping
@@ -72,7 +69,7 @@ class FloorsheetScrapper:
     def move_to_next_page(self):
         try:
             next_page_xpath = '//*[@title = "Next Page"]'
-            WebDriverWait(self.driver, 5).until(
+            WebDriverWait(self.driver, 2).until(
                 EC.element_to_be_clickable((By.XPATH, next_page_xpath))
             ).click()
             return True
@@ -90,8 +87,7 @@ class FloorsheetScrapper:
 
             if not self.move_to_next_page():
                 break
-        
-        # Concatenate all the scraped data into a single DataFrame
+
         if data:
             return pd.concat(data, axis=0)
         return pd.DataFrame()  # Return empty DataFrame if no data found
@@ -115,21 +111,23 @@ def collect_data_for_stock(args):
                 scraper.set_date_and_search(date_str)
                 data = scraper.scraped_data()
 
-                # Check if data is found
                 if not data.empty:
                     all_data.append(data)
-                    filename = f"{symbol}_{date_str.replace('/', '-')}.csv"
-                    path = os.path.join(os.getcwd(), 'Day3', filename)  # Save inside Day3 folder
-                    data.to_csv(path, index=False)
-                    print(f"Data saved for {symbol} on {date_str} in {path}")
 
             except Exception as e:
                 print(f"Error occurred while scraping data for {symbol} on {date_str}: {e}")
 
-            # Move to the next day
             current_date += timedelta(days=1)
 
         scraper.close()
+
+        # Save combined data for the stock at the end
+        if all_data:
+            combined_data = pd.concat(all_data, axis=0)
+            combined_filename = f"{symbol}_combined.csv"
+            combined_path = os.path.join(os.getcwd(), 'Day3', combined_filename)
+            combined_data.to_csv(combined_path, index=False)
+            print(f"All collected data for {symbol} saved in {combined_path}")
 
     except Exception as e:
         print(f"Error setting up scraper for {symbol}: {e}")
@@ -137,10 +135,8 @@ def collect_data_for_stock(args):
     return all_data
 
 def collect_data(symbols, url, start_date, end_date):
-    # Create the Day3 directory if it doesn't exist
     os.makedirs(os.path.join(os.getcwd(), 'Day3'), exist_ok=True)
 
-    # Prepare arguments for multiprocessing
     args = [(symbol, url, start_date, end_date) for symbol in symbols]
 
     with ProcessPoolExecutor(max_workers=len(symbols)) as executor:
@@ -151,27 +147,13 @@ def collect_data(symbols, url, start_date, end_date):
             result = future.result()
             all_combined_data.extend(result)
 
-    # Combine all collected data into individual DataFrames for each stock
-    for symbol in symbols:
-        symbol_data = [df for df in all_combined_data if not df.empty and df['Symbol'].iloc[0] == symbol]
-        if symbol_data:
-            combined_data = pd.concat(symbol_data, axis=0)
-
-            # Save combined data for the symbol
-            combined_filename = f"{symbol}_combined.csv"
-            combined_path = os.path.join(os.getcwd(), 'Day3', combined_filename)
-            combined_data.to_csv(combined_path, index=False)
-            print(f"All collected data for {symbol} saved in {combined_path}")
-
 # Usage
 url = 'https://merolagani.com/Floorsheet.aspx'
 
 if __name__ == '__main__':
-    # Define stock symbols and the date range
-    symbols = ['NGPL']  # Add more stock symbols as needed
+    symbols = ['HRL']  # Add more stock symbols as needed
 
-    # Define the date range
     end_date = datetime.today()
-    start_date = end_date - timedelta(days=7)  # One week back
+    start_date = end_date - timedelta(days=30)  # One month back
 
     collect_data(symbols, url, start_date, end_date)
