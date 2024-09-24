@@ -31,7 +31,7 @@ Efficiently managing multiple stock symbols in a single scraping session.
 📈 The data collected will be instrumental in developing robust quantitative models and strategies tailored for NEPSE. Excited to see where this journey leads!
 ![alt text](<Screenshot 2024-09-22 at 2.56.16 PM.png>)
 
-Day 4 of hashtag#CreatingQuantitativeStrategiesforNepse
+Day 4 of #CreatingQuantitativeStrategiesforNepse
 🎯 Pairs Trading Strategy for Nepse Stocks! 📊
 I’m excited to share the completion of my latest backtesting project using a Pairs Trading Strategy based on statistical arbitrage! Here’s a breakdown of how it works:
 
