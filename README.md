@@ -30,3 +30,27 @@ Inputting date ranges to collect historical floorsheet trading data systematical
 Efficiently managing multiple stock symbols in a single scraping session.
 📈 The data collected will be instrumental in developing robust quantitative models and strategies tailored for NEPSE. Excited to see where this journey leads!
 ![alt text](<Screenshot 2024-09-22 at 2.56.16 PM.png>)
+
+Day 4 of hashtag#CreatingQuantitativeStrategiesforNepse
+🎯 Pairs Trading Strategy for Nepse Stocks! 📊
+I’m excited to share the completion of my latest backtesting project using a Pairs Trading Strategy based on statistical arbitrage! Here’s a breakdown of how it works:
+
+How It Works:
+Stock Selection: We identified pairs of stocks exhibiting strong historical price correlations using the Engle-Granger cointegration test.
+
+Mean Reversion: The strategy operates on the assumption that when the price spread between two stocks deviates beyond a certain threshold, it will revert to its mean. We enter trades when the spread hits an extreme level and exit when it returns to normal.
+
+Backtesting with Monte Carlo Simulation:
+To optimize the trading parameters, I conducted 1,000 Monte Carlo simulations, varying rolling windows and thresholds for entering and exiting trades.
+
+The simulations were crucial in optimizing key parameters, such as Z-score entry/exit thresholds and holding periods, aimed at maximizing risk-adjusted returns.
+
+A 5% stop-loss was set to manage risk effectively. The starting capital was 10k. Min holding day was 3 days and 0.04% was set as broker commission.
+
+Performance Metrics:
+The strategy was evaluated using the Sharpe Ratio, Sortino Ratio, and Max Drawdown to prioritize risk-adjusted returns. Here are some top-performing pairs from the backtest:
+
+The strategy achieved exceptionally high Sharpe Ratios in some pairs with minimized drawdowns, indicating strong performance with controlled risk.
+
+However, the returns are abnormally high, and I will verify the dataset's integrity to ensure accuracy.
+![alt text](fig_statarb.png)
