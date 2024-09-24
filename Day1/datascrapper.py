@@ -24,6 +24,7 @@ class Scrapper():
     def __init__(self, url):
         ua = UserAgent()
         options.add_argument('--no-sandbox')
+        #options.add_argument('--headless')  # Run in headless mode for speed
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument(f'user-agent={ua.random}')  # Add random user agent
         service = Service("/Users/icarus/Downloads/chromedriver-mac-arm64 2/chromedriver")  # Your specific path
@@ -115,18 +116,25 @@ class Scrapper():
         data = pd.concat(data, axis=0)
         
         return data
+    
+    def close(self):
+        self.driver.quit()
 
 def save_datas(symbol):
     url = f'https://merolagani.com/CompanyDetail.aspx?symbol={symbol}'
     scrapper = Scrapper(url)
-    data = scrapper.datas()
-    filename = f"{symbol}.csv"
-    path = os.path.join(os.getcwd(), filename)
-    data.to_csv(path, index=False)
-    print(f"Data saved for {symbol} in {path}")
+    try:
+        data = scrapper.datas()
+        filename = f"{symbol}.csv"
+        path = os.path.join(os.getcwd(), filename)
+        data.to_csv(path, index=False)
+        print(f"Data saved for {symbol} in {path}")
+    finally:
+        scrapper.close()
 
 if __name__ == '__main__':
-    stock_symbols = ['KBL', 'EBL']
+    stock_symbols = ['AKPL', 'UPPER', 'NYADI', 'NHPC', 'RADHI', 'HDHPC', 'SPDL', 'KPCL', 'UNHPL', 'DHPL']
+    stock_symbols = ['UNHPL']
     processes = []
 
     for symbol in stock_symbols:
@@ -136,3 +144,4 @@ if __name__ == '__main__':
 
     for process in processes:
         process.join()  # Wait for all processes to finish
+
