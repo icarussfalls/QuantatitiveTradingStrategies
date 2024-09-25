@@ -54,3 +54,24 @@ The strategy achieved exceptionally high Sharpe Ratios in some pairs with minimi
 
 However, the returns are abnormally high, and I will verify the dataset's integrity to ensure accuracy.
 ![alt text](fig_statarb.png)
+
+Day 5 of hashtag#CreatingQuantitativeStrategiesforNepse
+Trading Strategy Optimization for Nepse Stocks! 📈
+
+I'm thrilled to share the latest enhancements and results from my Pairs Trading Strategy project! Building on the insights from my previous backtesting, I've made significant improvements to refine our trading approach. Here’s what we accomplished:
+
+Key Improvements:
+Enhanced Parameter Search: Incorporated multiple stop-loss thresholds (5, 10, 15, and 20) to better manage risk and protect capital.
+Sharpe Ratio Calculation Fix: Adjusted the calculation method to ensure accurate performance evaluation, giving us clearer insights into risk-adjusted returns.
+Refined Trade Logic: Now allocating 50% of funds to each stock, allowing for simultaneous trading when entry thresholds are met, enhancing our trading flexibility.
+
+Starting Capital was $10,000.
+
+Performance Highlights:
+Top Performing Pairs:
+NYADI & NHPC: Final cumulative return of $24,422.86 with a Sharpe ratio of 1.79 and a win rate of 64%.
+NYADI & HDHPC: Achieved returns of $19,379.21 with a profit factor of 1.81.
+NYADI & UNHPL: Delivered $17,111.87 and an impressive Sortino ratio of 4.35.
+
+For Day 6: I am researching the Copula approach for mean reversion trading.
+![alt text](cumulative_returns_cointegrated_pairs.png)
