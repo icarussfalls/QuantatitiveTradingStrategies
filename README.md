@@ -55,7 +55,7 @@ The strategy achieved exceptionally high Sharpe Ratios in some pairs with minimi
 However, the returns are abnormally high, and I will verify the dataset's integrity to ensure accuracy.
 ![alt text](fig_statarb.png)
 
-Day 5 of hashtag#CreatingQuantitativeStrategiesforNepse
+Day 5 of #CreatingQuantitativeStrategiesforNepse
 Trading Strategy Optimization for Nepse Stocks! 📈
 
 I'm thrilled to share the latest enhancements and results from my Pairs Trading Strategy project! Building on the insights from my previous backtesting, I've made significant improvements to refine our trading approach. Here’s what we accomplished:
@@ -75,3 +75,7 @@ NYADI & UNHPL: Delivered $17,111.87 and an impressive Sortino ratio of 4.35.
 
 For Day 6: I am researching the Copula approach for mean reversion trading.
 ![alt text](cumulative_returns_cointegrated_pairs.png)
+
+Day 9 of #CreatingQuantitativeStrategiesforNepse
+Today, I collected the datas of stocks belonging to different sectors and backtested the long only pairs trading strategy.
+Fixed some backtesting buy
