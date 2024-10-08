@@ -73,9 +73,40 @@ NYADI & NHPC: Final cumulative return of $24,422.86 with a Sharpe ratio of 1.79 
 NYADI & HDHPC: Achieved returns of $19,379.21 with a profit factor of 1.81.
 NYADI & UNHPL: Delivered $17,111.87 and an impressive Sortino ratio of 4.35.
 
-For Day 6: I am researching the Copula approach for mean reversion trading.
-![alt text](cumulative_returns_cointegrated_pairs.png)
+Day 6 of #CreatingQuantitativeStrategiesforNepse
 
-Day 9 of #CreatingQuantitativeStrategiesforNepse
-Today, I collected the datas of stocks belonging to different sectors and backtested the long only pairs trading strategy.
-Fixed some backtesting buy
+Today, I focused on generating buy signals for stock pairs using parameters derived from our backtesting.
+
+The robust stocks from our backtest were NYADI, NHPC and NYADI, DHPL.
+
+For the pair NYADI and NHPC, the analysis indicated a rolling window of 7, with entry thresholds of -1.26 and 2.43. The signal suggested holding the current position or staying out, as the Z-score was -0.94.
+
+In contrast, the pair NYADI and DHPL showed a rolling window of 15, with entry thresholds of -1.96 and 1.01. Here, the signal recommended entering a position to buy NYADI, as the Z-score has already reached -2.67.
+
+Day 7 of #CreatingQuantitativeStrategiesforNepse
+Today, I made significant strides in my project by collecting stock data across various sectors, including banking, hydropower, microfinance, and reinsurance. 
+
+After conducting thorough backtesting, I observed a low success rate in banking stocks, while hydropower, microfinance, and reinsurance sectors showed promising results. 
+
+Key accomplishments:
+Enhanced my data scrapper to eliminate duplication, ensuring that the datasets collected are clean and accurate.
+Refined my approach to backtesting, yielding actionable insights into the performance of different sectors.
+Focused on improving the data alignment and cleaning processes to facilitate more effective quantitative strategies.
+
+Looking forward to Day 8, I am continuing my research on the application of the Ornstein–Uhlenbeck process to NEPSE. I also want to collect orderbook data for visualization using flux. Excited for what lies ahead!
+
+Day 8 of #CreatingQuantitativeStrategiesforNepse
+
+(Disclaimer: This should not be taken as investment advice and is for research only.)
+
+Building on yesterday’s work, I’ve taken my strategy development a step further by implementing advanced techniques to optimize performance and generate actionable signals:
+
+🔄 Backtested Across Sectors: Refined strategy with sector-specific and cross-sector stock pairs for banking, hydropower, microfinance, and reinsurance.
+
+🎲 Monte Carlo Simulation: Applied Monte Carlo methods to select the best risk-adjusted returns, optimizing Sharpe ratios while minimizing drawdowns.
+
+📊 Automated Signal Generation: Took optimized parameters, generated buy/exit signals, and validated them across multiple stocks.
+
+📈 Insights: Calculated the number of buy signals per stock to guide future trading decisions.
+
+Step by step, we're moving closer to creating robust, data-driven quantitative strategies for Nepse!

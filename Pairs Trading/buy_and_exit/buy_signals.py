@@ -20,22 +20,28 @@ def get_latest_signal(stock_a, stock_b, rolling_window, z_entry_thresh_a, z_entr
     # Calculate z-score of the spread
     z_score = (spread - spread_mean) / spread_std
 
-    # Get the latest z-score
+    # Get the last two z-scores
+    if len(z_score) < 2:
+        return 'Hold', 'None', z_score.iloc[-1]  # Not enough data to decide
+
     latest_z_score = z_score.iloc[-1]
+    previous_z_score = z_score.iloc[-2]
 
     # Generate signal based on the latest z-score
     if latest_z_score < z_entry_thresh_a:  # Buy Stock A when z-score is below its entry threshold
         return 'Buy', stock_a_name, latest_z_score
     elif latest_z_score > z_entry_thresh_b:  # Buy Stock B when z-score is above its entry threshold
         return 'Buy', stock_b_name, latest_z_score
-    elif latest_z_score > z_exit_thresh + 0.02 or latest_z_score < -z_exit_thresh - 0.02:  # Exit signal for both conditions
-        return 'Exit', 'None', latest_z_score
+    elif previous_z_score < z_exit_thresh <= latest_z_score:  # Exit signal for Stock A
+        return 'Exit', stock_a_name, latest_z_score
+    elif previous_z_score > -z_exit_thresh >= latest_z_score:  # Exit signal for Stock B
+        return 'Exit', stock_b_name, latest_z_score
     else:
         return 'Hold', 'None', latest_z_score  # Hold current position
 
 
 # Step 1: Load all CSV files from the results directory
-file_path_pattern = 'results/*.csv'  # Correct wildcard to match all CSV files
+file_path_pattern = 'Pairs Trading/results/*.csv'  # Correct wildcard to match all CSV files
 all_files = glob.glob(file_path_pattern)
 
 # Step 2: Create an empty list to store DataFrames
@@ -48,7 +54,6 @@ for file in all_files:
 
 # Step 4: Concatenate all DataFrames into a single DataFrame
 all_results_df = pd.concat(df_list, ignore_index=True)
-
 # Step 5: Select only the required columns
 required_columns = [
     'Stock A', 'Stock B', 'Best Rolling Window', 'Z Entry Threshold A', 'Z Entry Threshold B',
@@ -62,7 +67,10 @@ summary_table = all_results_df[required_columns]  # Retain only the specified co
 # Step 6: Filter for pairs with Sharpe Ratio > 2
 summary_table = summary_table[summary_table['Final Sharpe Ratio'] > 2]
 
-# Step 7: Round the numeric columns to 2 decimal places
+# Step 7: Filter for pairs where Average Profit > Average Loss
+summary_table = summary_table[summary_table['Average Profit'] > summary_table['Average Loss']]
+
+# Step 9: Round the numeric columns to 2 decimal places
 numeric_columns = [
     'Best Rolling Window', 'Z Entry Threshold A', 'Z Entry Threshold B',
     'Z Exit Threshold', 'Stop Loss Threshold', 'Final Cumulative Returns',
@@ -73,23 +81,27 @@ numeric_columns = [
 # Using .loc to avoid SettingWithCopyWarning
 summary_table.loc[:, numeric_columns] = summary_table[numeric_columns].round(2)
 
-# Step 8: Filter out rows with inf or 0 values in the numeric columns
+# Step 9: Filter out rows with inf or 0 values in the numeric columns
 summary_table = summary_table[~summary_table[numeric_columns].isin([float('inf'), 0]).any(axis=1)]
 
-# Step 9: Display the summary table with formatted floats
+# Step 10: Display the summary table with formatted floats
 pd.set_option('display.float_format', '{:.2f}'.format)
 
-# Step 10: Print the final summary table
+# Step 11: Print the final summary table
 print(summary_table)
 
-# Step 11: Optionally save to a new CSV
-summary_table.to_csv('results_summary_filtered.csv', index=False)
+# Step 12: Optionally save to a new CSV
+filename = "results_summary_filtered.csv"
+path = os.path.join(os.getcwd(), 'Pairs Trading/signals/' + filename)
+summary_table.to_csv(path, index=False)
 
 # Prepare a list to hold all signals
 all_signals = []
 
-# Count of buy signals for each stock
+# Initialize dictionaries for buy count, profitability, win rate, and Sharpe ratio
 buy_count = {}
+average_sharpe = {}
+win_rate = {}
 
 # Iterate through each stock pair in the summary table
 for index, row in summary_table.iterrows():
@@ -109,7 +121,7 @@ for index, row in summary_table.iterrows():
     # Convert 'Date' column to datetime and 'LTP' to numeric
     for df in [stock_a_data, stock_b_data]:
         df['Date'] = pd.to_datetime(df['Date'])
-        df['LTP'] = pd.to_numeric(df['LTP'], errors='coerce')
+        df['LTP'] = pd.to_numeric(df['Close'], errors='coerce')
         df.dropna(subset=['LTP'], inplace=True)
     
     # Get the latest signal
@@ -134,13 +146,44 @@ for index, row in summary_table.iterrows():
             buy_count[stock_to_buy] = 0
         buy_count[stock_to_buy] += 1
 
+        # Track average Sharpe ratio and win rate
+        if stock_to_buy not in average_sharpe:
+            average_sharpe[stock_to_buy] = row['Final Sharpe Ratio']
+            win_rate[stock_to_buy] = row['Win Rate']
+        else:
+            # Update average Sharpe ratio
+            average_sharpe[stock_to_buy] = (average_sharpe[stock_to_buy] + row['Final Sharpe Ratio']) / 2  # Average Sharpe ratio
+            win_rate[stock_to_buy] = (win_rate[stock_to_buy] + row['Win Rate']) / 2  # Average win rate
+
 # Step 12: Convert signals list to DataFrame
 signals_df = pd.DataFrame(all_signals)
 
 # Step 13: Save the signals DataFrame to a CSV file
-signals_df.to_csv('generated_signals.csv', index=False)
+filename = 'generated_signals.csv'
+path = os.path.join(os.getcwd(), 'Pairs Trading/signals/' + filename)
+signals_df.to_csv(path, index=False)
 
 # Step 14: Print the count of buy signals for each stock
 print("Buy Count for Each Stock:")
 for stock, count in buy_count.items():
     print(f"{stock}: {count}")
+
+# Step 15: Create a DataFrame for average Sharpe ratio and win rate
+ranking_df = pd.DataFrame({
+    'Stock': buy_count.keys(),
+    'Buy Count': buy_count.values(),
+    'Average Sharpe Ratio': [average_sharpe[stock] for stock in buy_count.keys()],
+    'Win Rate': [win_rate[stock] for stock in buy_count.keys()]
+})
+
+# Step 16: Sort the ranking DataFrame by Average Sharpe Ratio and Win Rate
+ranking_df.sort_values(by=['Average Sharpe Ratio', 'Win Rate'], ascending=False, inplace=True)
+
+# Step 17: Display the ranking DataFrame
+print("\nRanked Stocks to Buy:")
+print(ranking_df)
+
+filename = "ranked_stocks_to_buy.csv"
+# Save DataFrame to CSV
+path = os.path.join(os.getcwd(), 'Pairs Trading/signals/' + filename)
+ranking_df.to_csv(path, index=False)

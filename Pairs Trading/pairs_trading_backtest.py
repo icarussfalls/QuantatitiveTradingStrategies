@@ -28,31 +28,15 @@ def process_stock_data(stock_symbols, fill_method='ffill'):
         try:
             data = pd.read_csv(f'/Users/icarus/Desktop/QuantatitiveTradingStrategies/datas/{symbol}.csv')
             # Parse the dates and handle invalid dates
-            data['Date'] = pd.to_datetime(data['Date'], errors='raise')
+            #data['Date'] = pd.to_datetime(data['f_date'], errors='raise')
             data = data.drop_duplicates(subset='Date')
             data.sort_values(by='Date', ascending=True, inplace=True)
-
-            # Check if 'LTP' column exists
-            if 'LTP' not in data.columns:
-                logging.warning(f"LTP column not found in {symbol}.csv")
-                continue
-
-            # Remove commas and ensure proper float conversion
-            if data['LTP'].dtype == 'object':
-                data['LTP'] = data['LTP'].str.replace(',', '', regex=False).str.strip()  # Remove commas and trim spaces
-
-            # Attempt to convert LTP to numeric and log any conversion errors
-            try:
-                data['LTP'] = pd.to_numeric(data['LTP'], errors='coerce')  # Use 'coerce' to convert invalid entries to NaN
-            except ValueError as e:
-                logging.error(f"Error converting LTP in {symbol}.csv: {e}")
-                continue
 
             # Set the Date as the index for alignment
             data.set_index('Date', inplace=True)
 
             # Store the cleaned data
-            aligned_data[symbol] = data[['LTP']]
+            aligned_data[symbol] = data[['Close']]
 
         except FileNotFoundError:
             logging.error(f"File {symbol}.csv not found.")
@@ -112,13 +96,18 @@ def calculate_drawdown(returns):
 # Function for Engle-Granger cointegration test
 def engle_granger_cointegration(data, p_value_threshold=config['p_value_threshold']):
     stock_symbols = data.columns
-    cointegrated_pairs = []
+    cointegrated_pairs = set()  # Use a set to avoid duplicates
+    
     for pair in combinations(stock_symbols, 2):
-        score, p_value, _ = coint(data[pair[0]], data[pair[1]])
-        if p_value < p_value_threshold:
-            cointegrated_pairs.append(pair)
-            logging.info(f"Cointegrated Pair: {pair} with p-value: {p_value}")
-    return cointegrated_pairs
+        sorted_pair = tuple(sorted(pair))  # Ensure pairs are always in the same order
+        if sorted_pair not in cointegrated_pairs:  # Only process if not already done
+            score, p_value, _ = coint(data[pair[0]], data[pair[1]])
+            if p_value < p_value_threshold:
+                cointegrated_pairs.add(sorted_pair)  # Add the pair in sorted order
+                logging.info(f"Cointegrated Pair: {pair} with p-value: {p_value}")
+    
+    return list(cointegrated_pairs)
+
 
 # Function to backtest the strategy
 def backtest_stat_arbitrage(data, stock_a, stock_b, initial_capital=10000, rolling_window=15, 
@@ -439,8 +428,12 @@ if __name__ == "__main__":
                     plt.figure(figsize=(12, 6))
 
                     for index, row in final_results_df.iterrows():
+                        # Convert cumulative returns series to float
                         cumulative_returns_series = row[['Timestep 1'] + [f'Timestep {i+1}' for i in range(1, cumulative_returns_df.shape[1])]].values
-                        date_index = combined_df.index[:len(cumulative_returns_series)]
+                        cumulative_returns_series = [float(value) for value in cumulative_returns_series]  # Ensure the values are floats
+
+                        # Ensure the date index is in datetime format
+                        date_index = pd.to_datetime(combined_df.index[:len(cumulative_returns_series)])
 
                         plt.plot(date_index, cumulative_returns_series, label=f'{row["Stock A"]} & {row["Stock B"]}')
 
@@ -458,11 +451,6 @@ if __name__ == "__main__":
                     plt.close()  # Close the plot to avoid displaying it
                 else:
                     logging.warning(f"'Cumulative Returns Series' not found in results for {combined_category}")
-        else:
-            logging.error(f"No valid stock data available for {combined_category} analysis.")
+            else:
+                logging.error(f"No valid stock data available for {combined_category} analysis.")
 
-    # Show all results at the end
-    if not all_final_results.empty:
-        print(all_final_results)
-        all_final_results.to_csv('results/all_results_combined.csv', index=False)
-        logging.info("All results from cross-list combinations saved to 'results/all_results_combined.csv'.")
