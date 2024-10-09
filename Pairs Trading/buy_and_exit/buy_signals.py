@@ -2,7 +2,7 @@ import pandas as pd
 import glob
 import os
 
-def get_latest_signal(stock_a, stock_b, rolling_window, z_entry_thresh_a, z_entry_thresh_b, z_exit_thresh, stock_a_name, stock_b_name):
+def get_latest_signal(stock_a, stock_b, rolling_window, z_entry_thresh_a, z_entry_thresh_b, z_exit_thresh, stock_a_name, stock_b_name, hedge_ratio):
     # Ensure both dataframes are sorted by date in ascending order
     stock_a = stock_a.sort_values(by='Date', ascending=True)
     stock_b = stock_b.sort_values(by='Date', ascending=True)
@@ -10,8 +10,8 @@ def get_latest_signal(stock_a, stock_b, rolling_window, z_entry_thresh_a, z_entr
     # Align the dates of both stocks using merge
     merged_data = pd.merge(stock_a, stock_b, on='Date', suffixes=('_a', '_b'))
 
-    # Calculate the spread between Stock A and Stock B
-    spread = merged_data['LTP_a'] - merged_data['LTP_b']
+    # Calculate the spread between Stock A and Stock B using the hedge ratio
+    spread = merged_data['LTP_a'] - hedge_ratio * merged_data['LTP_b']
 
     # Calculate rolling mean and standard deviation of the spread
     spread_mean = spread.rolling(window=rolling_window).mean()
@@ -54,12 +54,13 @@ for file in all_files:
 
 # Step 4: Concatenate all DataFrames into a single DataFrame
 all_results_df = pd.concat(df_list, ignore_index=True)
+
 # Step 5: Select only the required columns
 required_columns = [
     'Stock A', 'Stock B', 'Best Rolling Window', 'Z Entry Threshold A', 'Z Entry Threshold B',
     'Z Exit Threshold', 'Stop Loss Threshold', 'Final Cumulative Returns',
     'Final Sharpe Ratio', 'Final Sortino Ratio', 'Final Max Drawdown', 
-    'Total Trades', 'Win Rate', 'Profit Factor', 'Average Profit', 'Average Loss'
+    'Total Trades', 'Win Rate', 'Profit Factor', 'Average Profit', 'Average Loss', 'Hedge Ratio'
 ]
 
 summary_table = all_results_df[required_columns]  # Retain only the specified columns
@@ -70,12 +71,12 @@ summary_table = summary_table[summary_table['Final Sharpe Ratio'] > 2]
 # Step 7: Filter for pairs where Average Profit > Average Loss
 summary_table = summary_table[summary_table['Average Profit'] > summary_table['Average Loss']]
 
-# Step 9: Round the numeric columns to 2 decimal places
+# Step 8: Round the numeric columns to 2 decimal places
 numeric_columns = [
     'Best Rolling Window', 'Z Entry Threshold A', 'Z Entry Threshold B',
     'Z Exit Threshold', 'Stop Loss Threshold', 'Final Cumulative Returns',
     'Final Sharpe Ratio', 'Final Sortino Ratio', 'Final Max Drawdown', 
-    'Total Trades', 'Win Rate', 'Profit Factor', 'Average Profit', 'Average Loss'
+    'Total Trades', 'Win Rate', 'Profit Factor', 'Average Profit', 'Average Loss', 'Hedge Ratio'
 ]
 
 # Using .loc to avoid SettingWithCopyWarning
@@ -98,10 +99,10 @@ summary_table.to_csv(path, index=False)
 # Prepare a list to hold all signals
 all_signals = []
 
-# Initialize dictionaries for buy count, profitability, win rate, and Sharpe ratio
+# Initialize dictionaries for buy count, total Sharpe ratio, and total win rate
 buy_count = {}
-average_sharpe = {}
-win_rate = {}
+total_sharpe = {}
+total_win_rate = {}
 
 # Iterate through each stock pair in the summary table
 for index, row in summary_table.iterrows():
@@ -113,7 +114,8 @@ for index, row in summary_table.iterrows():
     z_entry_thresh_a = row['Z Entry Threshold A']
     z_entry_thresh_b = row['Z Entry Threshold B']
     z_exit_thresh = row['Z Exit Threshold']
-    
+    hedge_ratio = row['Hedge Ratio']  # Now correctly using the hedge ratio from the results
+
     # Load the stock data
     stock_a_data = pd.read_csv(f'datas/{stock_a_name}.csv')
     stock_b_data = pd.read_csv(f'datas/{stock_b_name}.csv')
@@ -125,7 +127,7 @@ for index, row in summary_table.iterrows():
         df.dropna(subset=['LTP'], inplace=True)
     
     # Get the latest signal
-    signal, stock_to_buy, latest_z_score = get_latest_signal(stock_a_data, stock_b_data, rolling_window, z_entry_thresh_a, z_entry_thresh_b, z_exit_thresh, stock_a_name, stock_b_name)
+    signal, stock_to_buy, latest_z_score = get_latest_signal(stock_a_data, stock_b_data, rolling_window, z_entry_thresh_a, z_entry_thresh_b, z_exit_thresh, stock_a_name, stock_b_name, hedge_ratio)
     
     # Append the results to the signals list
     all_signals.append({
@@ -144,46 +146,30 @@ for index, row in summary_table.iterrows():
     if signal == 'Buy':
         if stock_to_buy not in buy_count:
             buy_count[stock_to_buy] = 0
+            total_sharpe[stock_to_buy] = 0
+            total_win_rate[stock_to_buy] = 0
         buy_count[stock_to_buy] += 1
 
-        # Track average Sharpe ratio and win rate
-        if stock_to_buy not in average_sharpe:
-            average_sharpe[stock_to_buy] = row['Final Sharpe Ratio']
-            win_rate[stock_to_buy] = row['Win Rate']
-        else:
-            # Update average Sharpe ratio
-            average_sharpe[stock_to_buy] = (average_sharpe[stock_to_buy] + row['Final Sharpe Ratio']) / 2  # Average Sharpe ratio
-            win_rate[stock_to_buy] = (win_rate[stock_to_buy] + row['Win Rate']) / 2  # Average win rate
+        # Accumulate total Sharpe ratio and win rate
+        total_sharpe[stock_to_buy] += row['Final Sharpe Ratio']
+        total_win_rate[stock_to_buy] += row['Win Rate']
 
-# Step 12: Convert signals list to DataFrame
-signals_df = pd.DataFrame(all_signals)
-
-# Step 13: Save the signals DataFrame to a CSV file
-filename = 'generated_signals.csv'
-path = os.path.join(os.getcwd(), 'Pairs Trading/signals/' + filename)
-signals_df.to_csv(path, index=False)
-
-# Step 14: Print the count of buy signals for each stock
-print("Buy Count for Each Stock:")
-for stock, count in buy_count.items():
-    print(f"{stock}: {count}")
-
-# Step 15: Create a DataFrame for average Sharpe ratio and win rate
+# Step 16: Create a DataFrame for average Sharpe ratio and win rate
 ranking_df = pd.DataFrame({
     'Stock': buy_count.keys(),
     'Buy Count': buy_count.values(),
-    'Average Sharpe Ratio': [average_sharpe[stock] for stock in buy_count.keys()],
-    'Win Rate': [win_rate[stock] for stock in buy_count.keys()]
+    'Average Sharpe Ratio': [total_sharpe[stock] / buy_count[stock] for stock in buy_count.keys()],
+    'Win Rate': [total_win_rate[stock] / buy_count[stock] for stock in buy_count.keys()],
 })
 
-# Step 16: Sort the ranking DataFrame by Average Sharpe Ratio and Win Rate
+# Step 17: Sort the ranking DataFrame by Average Sharpe Ratio and Win Rate
 ranking_df.sort_values(by=['Average Sharpe Ratio', 'Win Rate'], ascending=False, inplace=True)
 
-# Step 17: Display the ranking DataFrame
+# Step 18: Display the ranking DataFrame
 print("\nRanked Stocks to Buy:")
 print(ranking_df)
 
+# Save ranking DataFrame to CSV
 filename = "ranked_stocks_to_buy.csv"
-# Save DataFrame to CSV
 path = os.path.join(os.getcwd(), 'Pairs Trading/signals/' + filename)
 ranking_df.to_csv(path, index=False)

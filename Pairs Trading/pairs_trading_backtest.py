@@ -6,6 +6,8 @@ from itertools import combinations
 import os
 import logging
 from concurrent.futures import ProcessPoolExecutor  # Import for multiprocessing
+from statsmodels.regression.linear_model import OLS
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -17,7 +19,8 @@ config = {
     'commission_rate': 0.004,
     'tax_rate': 0.075,  # Added tax rate for profitable trades
     'p_value_threshold': 0.05,
-    'num_simulations': 1000
+    'num_simulations': 1000,
+    'walk_forward_window': 20
 }
 
 # Function to process stock data
@@ -58,7 +61,7 @@ def process_stock_data(stock_symbols, fill_method='ffill'):
         combined_df = combined_df[(combined_df != 0).all(axis=1)]
 
         # Save the DataFrame to CSV without extra commas and with handling of NaN
-        combined_df.to_csv('check.csv', index=True)  # Saving with index for dates
+        #combined_df.to_csv('check.csv', index=True)  # Saving with index for dates
         return combined_df
     else:
         logging.error("No valid stock data available.")
@@ -108,6 +111,11 @@ def engle_granger_cointegration(data, p_value_threshold=config['p_value_threshol
     
     return list(cointegrated_pairs)
 
+# Function to calculate hedge ratio
+def calculate_hedge_ratio(stock_a_prices, stock_b_prices):
+    model = OLS(stock_a_prices, stock_b_prices).fit()
+    hedge_ratio = model.params[0]
+    return hedge_ratio
 
 # Function to backtest the strategy
 def backtest_stat_arbitrage(data, stock_a, stock_b, initial_capital=10000, rolling_window=15, 
@@ -115,7 +123,8 @@ def backtest_stat_arbitrage(data, stock_a, stock_b, initial_capital=10000, rolli
                             min_holding_period=3, commission_rate=0.001, stop_loss_threshold=0.05, 
                             cooldown_period=1):  # Add cooldown period parameter
     
-    spread = data[stock_a] - data[stock_b]
+    hedge_ratio = calculate_hedge_ratio(data[stock_a], data[stock_b])
+    spread = data[stock_a] - hedge_ratio * data[stock_b]
     spread_mean = spread.rolling(window=rolling_window).mean()
     spread_std = spread.rolling(window=rolling_window).std()
     z_score = (spread - spread_mean) / spread_std
@@ -253,12 +262,12 @@ def backtest_stat_arbitrage(data, stock_a, stock_b, initial_capital=10000, rolli
     average_loss = total_loss / losing_trades if losing_trades > 0 else 0
     
     return (cumulative_returns, sharpe_ratio, sortino_ratio, max_drawdown, 
-            total_trades, win_rate, profit_factor, average_profit, average_loss)
+            total_trades, win_rate, profit_factor, average_profit, average_loss, hedge_ratio)
 
 
 
 # Monte Carlo simulation for risk-adjusted returns with stop-loss optimization
-def monte_carlo_simulation(stock_a, stock_b, data, num_simulations=config['num_simulations']):
+def monte_carlo_simulation(stock_a, stock_b, data, num_simulations=config['num_simulations'], walk_forward_window=config['walk_forward_window']):
     results = []
     for sim in range(num_simulations):
         # Randomize parameters for each simulation
@@ -269,38 +278,69 @@ def monte_carlo_simulation(stock_a, stock_b, data, num_simulations=config['num_s
         
         # Iterate over different stop-loss thresholds
         for stop_loss_threshold in np.arange(0.05, 0.21, 0.05):
-            (cumulative_returns, sharpe_ratio, sortino_ratio, max_drawdown,
-             total_trades, win_rate, profit_factor, average_profit, average_loss) = backtest_stat_arbitrage(
-                data, 
-                stock_a,
-                stock_b,
-                rolling_window=rolling_window,
-                z_entry_threshold_a=z_entry_threshold_a,
-                z_entry_threshold_b=z_entry_threshold_b,
-                z_exit_threshold=z_exit_threshold,
-                stop_loss_threshold=stop_loss_threshold
-            )
-            
-            risk_adjusted_return = sharpe_ratio / (1 + max_drawdown) if max_drawdown != 0 else 0
-            
-            results.append({
-                'cumulative_returns': cumulative_returns.iloc[-1],
-                'sharpe_ratio': sharpe_ratio,
-                'sortino_ratio': sortino_ratio,
-                'max_drawdown': max_drawdown,
-                'risk_adjusted_return': risk_adjusted_return,
-                'rolling_window': rolling_window,
-                'z_entry_threshold_a': z_entry_threshold_a,
-                'z_entry_threshold_b': z_entry_threshold_b,
-                'z_exit_threshold': z_exit_threshold,
-                'stop_loss_threshold': stop_loss_threshold,
-                'total_trades': total_trades,
-                'win_rate': win_rate,
-                'profit_factor': profit_factor,
-                'average_profit': average_profit,
-                'average_loss': average_loss
-            })
-    
+            # Divide data into training and testing sets
+            train_start = 0
+            train_end = len(data) - walk_forward_window
+            test_start = train_end
+            test_end = len(data)
+
+            while test_end <= len(data):
+                train_data = data.iloc[train_start:train_end]
+                test_data = data.iloc[test_start:test_end]
+
+                # Backtest on training data
+                (cumulative_returns, sharpe_ratio, sortino_ratio, max_drawdown,
+                 total_trades, win_rate, profit_factor, average_profit, average_loss, hedge_ratio) = backtest_stat_arbitrage(
+                    train_data,
+                    stock_a,
+                    stock_b,
+                    rolling_window=rolling_window,
+                    z_entry_threshold_a=z_entry_threshold_a,
+                    z_entry_threshold_b=z_entry_threshold_b,
+                    z_exit_threshold=z_exit_threshold,
+                    stop_loss_threshold=stop_loss_threshold
+                )
+
+                # Evaluate on testing data
+                (test_cumulative_returns, _, _, _, _, _, _, _, _, _) = backtest_stat_arbitrage(
+                    test_data,
+                    stock_a,
+                    stock_b,
+                    rolling_window=rolling_window,
+                    z_entry_threshold_a=z_entry_threshold_a,
+                    z_entry_threshold_b=z_entry_threshold_b,
+                    z_exit_threshold=z_exit_threshold,
+                    stop_loss_threshold=stop_loss_threshold
+                )
+
+                risk_adjusted_return = sharpe_ratio / (1 + max_drawdown) if max_drawdown != 0 else 0
+
+                results.append({
+                    'cumulative_returns': cumulative_returns.iloc[-1],
+                    'test_cumulative_returns': test_cumulative_returns.iloc[-1],
+                    'sharpe_ratio': sharpe_ratio,
+                    'sortino_ratio': sortino_ratio,
+                    'max_drawdown': max_drawdown,
+                    'risk_adjusted_return': risk_adjusted_return,
+                    'rolling_window': rolling_window,
+                    'z_entry_threshold_a': z_entry_threshold_a,
+                    'z_entry_threshold_b': z_entry_threshold_b,
+                    'z_exit_threshold': z_exit_threshold,
+                    'stop_loss_threshold': stop_loss_threshold,
+                    'total_trades': total_trades,
+                    'win_rate': win_rate,
+                    'profit_factor': profit_factor,
+                    'average_profit': average_profit,
+                    'average_loss': average_loss,
+                    'hedge_ratio': hedge_ratio
+                })
+
+                # Update training and testing windows
+                train_start += walk_forward_window
+                train_end += walk_forward_window
+                test_start += walk_forward_window
+                test_end += walk_forward_window
+
     return pd.DataFrame(results)
 
 # Stock lists
@@ -322,6 +362,9 @@ stock_categories = {
     'others': stocks_others,
     'hydro': stocks_hydro
 }
+
+# Change the current working directory
+os.chdir('/Users/icarus/Desktop/QuantatitiveTradingStrategies/Pairs Trading')
 
 # Create directories for results and plots
 os.makedirs('results', exist_ok=True)
@@ -369,7 +412,7 @@ if __name__ == "__main__":
                     best_result = simulations.loc[simulations['risk_adjusted_return'].idxmax()]
 
                     (cumulative_returns, sharpe_ratio, sortino_ratio, max_drawdown,
-                    total_trades, win_rate, profit_factor, average_profit, average_loss) = backtest_stat_arbitrage(
+                    total_trades, win_rate, profit_factor, average_profit, average_loss, hedge_ratio) = backtest_stat_arbitrage(
                         combined_df,
                         stock_a,
                         stock_b,
@@ -401,7 +444,8 @@ if __name__ == "__main__":
                         'Win Rate': win_rate,
                         'Profit Factor': profit_factor,
                         'Average Profit': average_profit,
-                        'Average Loss': average_loss
+                        'Average Loss': average_loss,
+                        'Hedge Ratio': hedge_ratio
                     })
 
             # Check if there are any results
@@ -416,6 +460,7 @@ if __name__ == "__main__":
                     # Concatenate with results_df to maintain structure
                     final_results_df = pd.concat([results_df.drop(columns='Cumulative Returns Series'), cumulative_returns_df], axis=1)
 
+
                     # Save results to CSV in the results directory
                     csv_filename = f'results/{combined_category}.csv'
                     final_results_df.to_csv(csv_filename, index=False)
@@ -423,6 +468,8 @@ if __name__ == "__main__":
 
                     # Append current results to the main dataframe that holds all results
                     all_final_results = pd.concat([all_final_results, final_results_df])
+
+                    
 
                     # Plot cumulative returns series
                     plt.figure(figsize=(12, 6))

@@ -1,16 +1,15 @@
 import pandas as pd
 import os
 
-def get_latest_signal(stock_a, stock_b, rolling_window):
+def get_latest_signal(stock_a, stock_b, rolling_window, hedge_ratio):
     # Ensure both dataframes are sorted by date in ascending order
     stock_a = stock_a.sort_values(by='Date', ascending=True)
     stock_b = stock_b.sort_values(by='Date', ascending=True)
 
     # Align the dates of both stocks using merge
     merged_data = pd.merge(stock_a, stock_b, on='Date', suffixes=('_a', '_b'))
-
-    # Calculate the spread between Stock A and Stock B
-    spread = merged_data['LTP_a'] - merged_data['LTP_b']
+    # Calculate the spread between Stock A and Stock B using the hedge ratio
+    spread = merged_data['LTP_a'] - hedge_ratio * merged_data['LTP_b']
 
     # Calculate rolling mean and standard deviation of the spread
     spread_mean = spread.rolling(window=rolling_window).mean()
@@ -26,7 +25,7 @@ def get_latest_signal(stock_a, stock_b, rolling_window):
     return latest_z_score, previous_z_score
 
 # Define your current positions in a list format
-current_positions = ['MBL', 'KPCL']  # Add more stocks as needed
+current_positions = ['DDBL']  # Add more stocks as needed
 
 # Prepare a list to hold exit signals
 exit_signals = []
@@ -49,6 +48,7 @@ for stock_display_name in current_positions:
         # Retrieve all parameters for this pair
         rolling_window = int(row['Best Rolling Window'])
         z_exit_thresh = row['Z Exit Threshold']
+        hedge_ratio = row['Hedge Ratio']
 
         # Load the other stock's data
         other_stock_data = pd.read_csv(f'datas/{other_stock_name}.csv')
@@ -60,7 +60,7 @@ for stock_display_name in current_positions:
             df.dropna(subset=['LTP'], inplace=True)
 
         # Get the latest z-score for this pair
-        latest_z_score_a, previous_z_score_a = get_latest_signal(stock_data, other_stock_data, rolling_window)
+        latest_z_score_a, previous_z_score_a = get_latest_signal(stock_data, other_stock_data, rolling_window, hedge_ratio)
 
         # Check for exit signals based on z-score crossings
         exit_signal = None
@@ -78,7 +78,7 @@ for stock_display_name in current_positions:
 
         # Check if Stock B's z-score crossed from above to below the exit threshold
         # Calculate Stock B's latest and previous z-scores
-        latest_z_score_b, previous_z_score_b = get_latest_signal(other_stock_data, stock_data, rolling_window)
+        latest_z_score_b, previous_z_score_b = get_latest_signal(other_stock_data, stock_data, rolling_window, hedge_ratio)
         if previous_z_score_b is not None and previous_z_score_b > z_exit_thresh and latest_z_score_b <= z_exit_thresh:
             exit_signal = {
                 'Stock A': other_stock_name,
