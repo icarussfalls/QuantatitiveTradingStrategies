@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import os
 
+# Define stock symbol groups
 stocks_banking = ['NABIL', 'KBL', 'MBL', 'SANIMA', 'NICA']
 stocks_finance = ['CFCL', 'GFCL', 'MFIL', 'GUFL', 'NFL']
 stocks_microfinance = ['CBBL', 'DDBL', 'SKBBL', 'SMFDB', 'SWBBL', 'SMB', 'FOWAD', 'KLBSL']
@@ -11,12 +12,13 @@ stocks_non_life = ['NICL', 'NIL', 'NLG', 'SICL', 'PRIN', 'HEI']
 stocks_others = ['NRIC', 'NTC', 'SHIVM', 'HRL']
 stocks_hydro = ['NYADI', 'RADHI', 'NHPC', 'KPCL', 'HDHPC', 'DHPL', 'API', 'AKPL', 'UNHPL']
 
+# Concatenate all stock symbols into one list
 stock_symbols = stocks_banking + stocks_finance + stocks_microfinance + stocks_life + stocks_non_life + stocks_hydro + stocks_others
 
-# Base URL for the request
+# Base URL for data request
 url = "https://nepsealpha.com/trading/1/history"
 
-# Set up headers
+# Set up request headers
 headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',
@@ -25,57 +27,56 @@ headers = {
     'DNT': '1'
 }
 
+# Define cookies from the provided headers
+cookies = {
+    '_ga_9XQG87E8PF': 'GS1.2.1725901990.1.0.1725901990.0.0.0',
+    'remember_web_59ba36addc2b2f9401580f014c7f58ea4e30989d': 'eyJpdiI6IjJYOU14Z2Z6OFRWSzF4Unh4ZDhodEE9PSIsInZhbHVlIjoiMGxBODBkaVJSN3dtTVVVNlBnRVpRTUQ0RnJKVHowT0R1eWx6UUdzc05pYlNoaitpclBtNGpqb0phRWdiQUt5NXUwdCtJa2xzMWgxcnpQdXQ1ZnhSbEE1RS9iNjliNnlhYmN2K0FMbmhneWJVYmtXY2FOQnl6ZUVHV0k5UHEyeXg5R2ROeGFtRS9zNFdFRFJoalJscmx1N1lYSGdwWkpxNG0xNWxER0x2dG95RlNVbDJNVXJrY2pzTWdSaFRHRmt3c0tvTjZFR2pzMEZVUVFUd3ZJdG5NSGxjWitTRnExL1RReHlQQUlRMU50Zz0iLCJtYWMiOiI5NTVjODgyN2QwZjIyMDEzODFkNjU3OTcxOTI0ZWZiYmNkYmU3M2Q3MGQ2Y2U3MzFjMjUzODAzMmUyOThlMzRlIiwidGFnIjoiIn0%3D',
+    '_ga': 'GA1.1.1394048420.1722281423',
+    'site_theme': 'light',
+    '__cf_bm': 'RYFuyaXK83mcyprcqWzHahSXzupJoEKm0hCGV6vriuc-1730991287-1.0.1.1-XzaYTtGqDwWvkDkuK6WZL_wmWQLE7jS0lYh8J3zSpBsnjKEtQ_.OmxpDqPPlJpkGZog2SXR5Ff_B.3Zz8fERow',
+    'cf_clearance': 'Pp0xJI.jxiYx1x0xHfimZWv_QCJVq958a4THO4RMpIE-1730991295-1.2.1.1-auEKNaMhqJMy2hozYb_0XYWze6T5DCOzMVBlH3s9o0BytF5U1mk3aRsDgTyW5dtHVKKMXbh3fbVYzWMFpecyw64Uu_t5Yg04Js4EQ08muVEQXIWkinYJnO_b7OigjtXz9KehrRozfttIkuA6sXop5YgqvaxENFQvNPCyEeWIdZHtGMjcFu7xOSA9y7eL8R.FteJZ9bxoi.nqIKEWX7BG55gV9Zap3GSycaWUl9yU5TJOz_17n6n.OBoSXYWSXv.u1H20Yy7k0p0AgbxlvAiKhpC4.07YUjEMHRRG1RTh370X93f4N32dwEC7MQkRmuNo8bIM9YrmEudUJl3IIQVL0ROzhfcYe.UrRAjArg__XSlnOeQyyRPQ2srsw2J0AjXIebY79LRc6OvexG3jzMvJHA',
+    'nepsealpha_session': 'eyJpdiI6Ikk3bzYwS2tma29LZUJOSnBTYlduWUE9PSIsInZhbHVlIjoic3IybU5RdnZha3d5RXhvUkJrRkFjcllqWlNSNDkrYkZoZldvM0R4Mm9RbXBweDVGUFNvdVozSE5KNElPVFExUi9yN01aNjl6YnBzMk1idFl5TnNxQkVEeHg0WGtzbUtkUzFZNTUyczhxWE9NWWxieS9jU3U4R1NFREFscU5ncnUiLCJtYWMiOiJlNTZjZDM1ODdkZjA4MGIwNWYyNTc1OGZmOThkMGRhYWI4YTU1YzQyZGNjZjQ3MDQyZTVjNTU1ZmQ4MWZmMjRhIiwidGFnIjoiIn0%3D',
+}
+
+# Start a session to maintain cookies across requests
+session = requests.Session()
+
 # Loop through each stock symbol and retrieve data
 for symbol in stock_symbols:
-    # Define the payload for each stock symbol
     payload = {
-        'fsk': '1728308583040',
+        'fsk': 'fJYyOyExM7wifJph',
         'symbol': symbol,
         'resolution': '1D',
         'pass': 'ok'
     }
-    
+
     try:
         # Send a GET request
-        response = requests.get(url, params=payload, headers=headers)
+        response = session.get(url, params=payload, headers=headers, cookies=cookies)
 
-        # Check if the request was successful
+        # Check for successful response
         if response.status_code == 200:
-            # Parse the JSON response
-            data = json.loads(response.text)
+            data = response.json()  # Parse JSON directly
+            df = pd.DataFrame(data)  # Create DataFrame from data
 
-            # Create a DataFrame from the data
-            df = pd.DataFrame(data)
-
-            # Rename the columns
+            # Rename and process columns
             df.columns = ['Status', 'Open', 'High', 'Low', 'Close', 'Volume', 'Timestamp']
+            df = df.drop(columns=['Status'])  # Drop the 'Status' column
 
-            # Convert the OHLCV columns to numeric
-            df['Open'] = pd.to_numeric(df['Open'], errors='coerce')
-            df['High'] = pd.to_numeric(df['High'], errors='coerce')
-            df['Low'] = pd.to_numeric(df['Low'], errors='coerce')
-            df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
-            df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
+            # Convert OHLCV columns to numeric
+            for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
 
-
-            # Drop the 'Status' column
-            df = df.drop(columns=['Status'])
-
-            # Convert the timestamp to datetime
+            # Convert Timestamp to datetime and sort data
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s')
+            df = df.drop(columns=['Timestamp']).sort_values(by='Date')
 
-            # Drop the original Timestamp column
-            df = df.drop(columns=['Timestamp'])
-
-
-            df_sorted = df.sort_values(by='Date', ascending=True)
-
+            # Define filename and save DataFrame as CSV
             filename = f"{symbol}.csv"
-            # Save DataFrame to CSV
-            path = os.path.join(os.getcwd(), 'datas/' + filename)
-            df_sorted.to_csv(path, index=False)
+            path = os.path.join('datas', filename)
+            os.makedirs('datas', exist_ok=True)
+            df.to_csv(path, index=False)
             print(f"Data saved for {symbol} in {path}")
-            print(df_sorted)
         else:
             print(f"Failed to retrieve data for {symbol}: {response.status_code}")
     except Exception as e:

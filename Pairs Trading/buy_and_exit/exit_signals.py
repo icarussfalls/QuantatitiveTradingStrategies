@@ -25,7 +25,7 @@ def get_latest_signal(stock_a, stock_b, rolling_window, hedge_ratio):
     return latest_z_score, previous_z_score
 
 # Define your current positions in a list format
-current_positions = ['DDBL']  # Add more stocks as needed
+current_positions = ['HEI', 'UNHPL']  # Add more stocks as needed
 
 # Prepare a list to hold exit signals
 exit_signals = []
@@ -46,7 +46,7 @@ for stock_display_name in current_positions:
         other_stock_name = row['Stock B'] if row['Stock A'] == stock_display_name else row['Stock A']
 
         # Retrieve all parameters for this pair
-        rolling_window = int(row['Best Rolling Window'])
+        rolling_window = int(row['Rolling Window'])
         z_exit_thresh = row['Z Exit Threshold']
         hedge_ratio = row['Hedge Ratio']
 

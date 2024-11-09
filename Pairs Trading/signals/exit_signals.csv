@@ -1,1 +1,2 @@
-
+Stock A,Stock B,Signal,Latest Z-Score,Rolling Window,Z Exit Threshold
+NTC,UNHPL,Exit,0.17336455068121115,5,0.47

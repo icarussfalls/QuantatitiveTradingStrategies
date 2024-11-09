@@ -110,3 +110,33 @@ Building on yesterday’s work, I’ve taken my strategy development a step furt
 📈 Insights: Calculated the number of buy signals per stock to guide future trading decisions.
 
 Step by step, we're moving closer to creating robust, data-driven quantitative strategies for Nepse!
+
+Day 9 of #CreatingQuantitativeStrategiesforNepse
+(Disclaimer: This should not be taken as investment advice and is for research only.)
+
+Today marked another milestone in my journey of developing quantitative trading strategies, focusing on data efficiency and analysis:
+
+🚀 Fast Data Scraper: Successfully created a high-speed data scraper that gathers both adjusted and unadjusted stock data. This enhancement will significantly streamline my data collection process. Time taken for getting historical data for 50 stocks - 5 sec
+
+🔍 Sharpe Ratio Filtering: Implemented a robust filtering mechanism to identify stock pairs with high Sharpe Ratios, enabling me to focus on the most promising trading opportunities.
+
+📈 Insights: Generated a comprehensive count of buy signals for each stock, which will guide my future trading decisions and portfolio rebalancing efforts.
+
+With each step, I’m getting closer to building effective, data-driven quantitative strategies for Nepse!
+
+#QuantitativeTrading #AlgorithmicTrading #Nepse #Finance #DataScience #DataScraping #SharpeRatio #Python
+
+Day 10 of #CreatingQuantitativeStrategiesforNepse
+(Disclaimer: This should not be taken as investment advice and is for research only.)
+
+Today, I made significant strides in refining my quantitative trading strategies through walk-forward optimization to tackle the issue of low maximum drawdown in my results:
+
+🚀 Walk-Forward Optimization: Implemented a systematic approach to dynamically evaluate and adjust trading parameters, enhancing my model's adaptability to changing market conditions.
+
+🔍 Hedge Ratio Utilization: Leveraged the 'Hedge Ratio' from my results to better inform my trading decisions and improve risk management.
+
+📊 Performance Tracking: Improved my strategy’s performance metrics by ensuring that the average Sharpe ratio and win rate calculations accurately reflect the generated signals.
+
+With each development, I’m moving closer to constructing robust, data-driven strategies tailored for Nepse!
+
+#QuantitativeTrading #AlgorithmicTrading #Nepse #Finance #DataScience #WalkForwardOptimization #Python #MachineLearning
