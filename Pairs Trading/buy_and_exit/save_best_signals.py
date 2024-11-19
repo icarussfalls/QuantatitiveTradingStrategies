@@ -15,12 +15,12 @@ required_columns = [
 
 summary_table = all_results_df[required_columns]  # Retain only the specified columns
 
-# Filter for pairs with Sharpe Ratio > 1.5
+# Filter for pairs with Sharpe Ratio > 2
 summary_table = summary_table[summary_table['Final Sharpe Ratio'] > 2]
 
 # Filter for pairs where Average Profit > Average Loss
 summary_table = summary_table[summary_table['Average Profit'] > summary_table['Average Loss']]
-summary_table = summary_table[summary_table['Win Rate'] > 0.6]
+summary_table = summary_table[summary_table['Win Rate'] > 0.8]
 
 
 #Round the numeric columns to 2 decimal places

@@ -47,7 +47,7 @@ for company in companies:
     
     print(f"Fetching data for {company['l']} ({symbol})...")
     
-    earliest_date = "2000-01-01"  # Replace this with the actual earliest date for the stock
+    earliest_date = "2000-01-01"  # Lets start with the earliest date to cover all data for individual stocks
     range_start_date = to_unix_timestamp(earliest_date)  # Convert to Unix timestamp
     range_end_date = int(time.time())  # Use current timestamp for rangeEndDate
     

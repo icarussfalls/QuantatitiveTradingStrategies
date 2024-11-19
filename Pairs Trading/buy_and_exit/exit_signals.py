@@ -46,7 +46,7 @@ for stock_display_name in current_positions:
         other_stock_name = row['Stock B'] if row['Stock A'] == stock_display_name else row['Stock A']
 
         # Retrieve all parameters for this pair
-        rolling_window = int(row['Rolling Window'])
+        rolling_window = int(row['Half Life'])
         z_exit_thresh = row['Z Exit Threshold']
         hedge_ratio = row['Hedge Ratio']
 
@@ -55,8 +55,8 @@ for stock_display_name in current_positions:
 
         # Convert 'Date' column to datetime and 'LTP' to numeric for both stocks
         for df in [stock_data, other_stock_data]:
-            df['Date'] = pd.to_datetime(df['Date'])
-            df['LTP'] = pd.to_numeric(df['Close'], errors='coerce')
+            df['Date'] = pd.to_datetime(df['date'])
+            df['LTP'] = pd.to_numeric(df['close'], errors='coerce')
             df.dropna(subset=['LTP'], inplace=True)
 
         # Get the latest z-score for this pair
