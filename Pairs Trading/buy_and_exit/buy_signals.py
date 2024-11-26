@@ -3,8 +3,6 @@ import numpy as np
 import glob
 import os
 
-import numpy as np
-
 def rolling_mean(arr, window):
     # Compute rolling mean, return NaN if there aren't enough data points
     return np.array([np.nan if i < window - 1 else arr[i - window + 1:i + 1].mean() for i in range(len(arr))])
@@ -15,7 +13,7 @@ def rolling_std(arr, window):
 
 
 def get_latest_signal(stock_a, stock_b, half_life, z_entry_thresh_a, z_entry_thresh_b, z_exit_thresh, stock_a_name, stock_b_name, hedge_ratio):
-    rolling_window = half_life
+    rolling_window = int(half_life)
 
     # Calculate spread
     stock_a_close = stock_a['close'].values
@@ -23,7 +21,6 @@ def get_latest_signal(stock_a, stock_b, half_life, z_entry_thresh_a, z_entry_thr
 
     # Compute the spread
     spread = stock_a_close - hedge_ratio * stock_b_close
-    #print(f"Spread: {spread}")
 
     # Calculate rolling mean and rolling standard deviation
     spread_mean = rolling_mean(spread, rolling_window)
@@ -53,16 +50,16 @@ def get_latest_signal(stock_a, stock_b, half_life, z_entry_thresh_a, z_entry_thr
     print(f"Latest Z-score: {latest_z_score:.2f}, Previous Z-score: {previous_z_score:.2f}")
 
     # Generate signal based on Z-score thresholds
-    if latest_z_score < z_entry_thresh_a and previous_z_score > z_entry_thresh_a:
-        return 'Buy', stock_a_name, latest_z_score
-    elif latest_z_score > z_entry_thresh_b and previous_z_score < z_entry_thresh_b:
-        return 'Buy', stock_b_name, latest_z_score
+    if latest_z_score < z_entry_thresh_a and previous_z_score > z_entry_thresh_a and latest_z_score < z_exit_thresh :
+        return 'Buy', stock_a_name, stock_b_name, latest_z_score
+    elif latest_z_score > z_entry_thresh_b and previous_z_score < z_entry_thresh_b and latest_z_score > z_exit_thresh:
+        return 'Buy', stock_b_name, stock_a_name, latest_z_score
     elif previous_z_score < z_exit_thresh <= latest_z_score:
-        return 'Exit', stock_a_name, latest_z_score
+        return 'Exit', stock_a_name, stock_b_name, latest_z_score
     elif previous_z_score > -z_exit_thresh >= latest_z_score:
-        return 'Exit', stock_b_name, latest_z_score
+        return 'Exit', stock_b_name, stock_a_name, latest_z_score
     else:
-        return 'Hold', 'None', latest_z_score
+        return 'Hold', 'None', 'None', latest_z_score
 
 
 
@@ -91,18 +88,13 @@ def main():
             # Take lookback period from each stock independently
             stock_a_data = stock_a_data.tail(lookback_period).copy()
             stock_b_data = stock_b_data.tail(lookback_period).copy()
-            if len(stock_a_data) < lookback_period or len(stock_b_data) < lookback_period:
-                print('error', {stock_a_name}, {stock_b_name})
-                return
-                
-            
-            # Ensure there is sufficient data for both stocks
+
             if len(stock_a_data) < lookback_period or len(stock_b_data) < lookback_period:
                 print(f"Error: Insufficient data for {stock_a_name} or {stock_b_name}")
                 continue  # Skip to the next pair
             
             # Get signal
-            signal, stock_to_buy, latest_z_score = get_latest_signal(
+            signal, stock_to_buy, other_pair, latest_z_score = get_latest_signal(
                 stock_a_data,
                 stock_b_data,
                 row['Half Life'],
@@ -115,14 +107,14 @@ def main():
             )
             
             # Store results only if we got a valid signal
-            if signal != 'Hold' or latest_z_score is not None:
+            if latest_z_score is not None:
                 all_signals.append({
                     'Stock A': stock_a_name,
                     'Stock B': stock_b_name,
                     'Signal': signal,
-                    'Stock to Buy': stock_to_buy,
+                    'Stock': stock_to_buy,
                     'Latest Z-Score': latest_z_score,
-                    'Rolling Window': (row['Half Life']),
+                    'Rolling Window': row['Half Life'],
                     'Z Entry Threshold A': row['Z Entry Threshold A'],
                     'Z Entry Threshold B': row['Z Entry Threshold B'],
                     'Z Exit Threshold': row['Z Exit Threshold']
@@ -140,6 +132,13 @@ def main():
         except Exception as e:
             print(f"Error processing pair {stock_a_name}-{stock_b_name}: {str(e)}")
             continue
+
+    # Save `all_signals` to CSV
+    if all_signals:
+        signals_df = pd.DataFrame(all_signals)
+        signals_output_path = os.path.join(os.getcwd(), 'Pairs Trading/signals/all_signals.csv')
+        signals_df.to_csv(signals_output_path, index=False)
+        print(f"All signals saved to: {signals_output_path}")
 
     # Create ranking DataFrame if we have any buy signals
     if buy_count:
@@ -163,10 +162,12 @@ def main():
         print("\nRanked Stocks to Buy by Half Life:")
         print(ranking_df)
         
-        output_path = os.path.join(os.getcwd(), 'Pairs Trading/signals/ranked_stocks_to_buy_by_half_life.csv')
-        ranking_df.to_csv(output_path, index=False)
+        ranking_output_path = os.path.join(os.getcwd(), 'Pairs Trading/signals/ranked_stocks_to_buy_by_half_life.csv')
+        ranking_df.to_csv(ranking_output_path, index=False)
+        print(f"Ranking saved to: {ranking_output_path}")
     else:
         print("No buy signals generated")
+
 
 if __name__ == "__main__":
     main()

@@ -25,7 +25,7 @@ def get_latest_signal(stock_a, stock_b, rolling_window, hedge_ratio):
     return latest_z_score, previous_z_score
 
 # Define your current positions in a list format
-current_positions = ['HEI', 'UNHPL']  # Add more stocks as needed
+current_positions = ['PRSF']  # Add more stocks as needed
 
 # Prepare a list to hold exit signals
 exit_signals = []

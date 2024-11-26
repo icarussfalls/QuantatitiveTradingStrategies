@@ -20,7 +20,7 @@ config = {
     'tax_rate': 0.075,  # Added tax rate for profitable trades
     'p_value_threshold': 0.05,
     'num_simulations': 1000,
-    'walk_forward_window': 20,
+    'walk_forward_window': 100,
     'min_window': 5,
     'max_window' : 30
 }
@@ -268,6 +268,14 @@ def get_half_life(stock_a, stock_b, data, cache=half_life_cache):
         logging.info(f"Calculated and cached half-life for {stock_a}-{stock_b}: {half_life}")
         return half_life
     
+def rolling_mean(arr, window):
+    # Compute rolling mean, return NaN if there aren't enough data points
+    return np.array([np.nan if i < window - 1 else arr[i - window + 1:i + 1].mean() for i in range(len(arr))])
+
+def rolling_std(arr, window):
+    # Compute rolling standard deviation, return NaN if there aren't enough data points
+    return np.array([np.nan if i < window - 1 else arr[i - window + 1:i + 1].std() for i in range(len(arr))])
+    
 def backtest_stat_arbitrage(data, stock_a, stock_b, initial_capital=10000, 
                           z_entry_threshold_a=-2.0, z_entry_threshold_b=2.0, z_exit_threshold=0.0, 
                           min_holding_period=3, commission_rate=0.001, stop_loss_threshold=0.05, 
@@ -291,6 +299,22 @@ def backtest_stat_arbitrage(data, stock_a, stock_b, initial_capital=10000,
         logging.warning("NaN values detected in spread calculation")
         spread = spread.fillna(method='ffill')
 
+        # Calculate the hedge ratio
+    hedge_ratio = calculate_hedge_ratio(data[stock_a], data[stock_b])
+
+    # Calculate spread
+    #stock_a_close = data[stock_a].values
+    #stock_b_close = data[stock_b].values
+
+    # Compute the spread
+    #spread = stock_a_close - hedge_ratio * stock_b_close
+    #print(f"Spread: {spread}")
+
+    # Calculate rolling mean and rolling standard deviation
+    #spread_mean = rolling_mean(spread, rolling_window)
+    #spread_std = rolling_std(spread, rolling_window)
+    #z_score = (spread - spread_mean) / spread_std
+
     # Calculate z-scores
     spread_mean = spread.rolling(window=rolling_window, min_periods=min_window).mean()
     spread_std = spread.rolling(window=rolling_window, min_periods=min_window).std()
@@ -299,6 +323,7 @@ def backtest_stat_arbitrage(data, stock_a, stock_b, initial_capital=10000,
     # Replace infinite values and NaN in z-scores
     z_score = z_score.replace([np.inf, -np.inf], np.nan)
     z_score = z_score.fillna(0)
+
 
     positions_a = pd.Series(0, index=data.index)
     positions_b = pd.Series(0, index=data.index)
@@ -542,48 +567,64 @@ os.chdir('/Users/icarus/Desktop/QuantatitiveTradingStrategies/Pairs Trading')
 os.makedirs('results', exist_ok=True)
 os.makedirs('plots', exist_ok=True)
 
-# Main execution
+# Check for existing validation results
+VALIDATION_RESULTS_PATH = 'results/pair_validation_results.csv'
+
 if __name__ == "__main__":
     all_final_results = []
-    valid_pairs = []
-    rejected_pairs = []
 
     # Load cointegrated pairs from file
     cointegrated_pairs = load_cointegrated_pairs()
 
-    # First pass: validate all pairs
-    for _, row in cointegrated_pairs.iterrows():
-        stock_a, stock_b = row['stock_a'], row['stock_b']
-        data = process_stock_data([stock_a, stock_b], fill_method='ffill')
-        
-        is_valid, reason, half_life, rolling_window = validate_pair(stock_a, stock_b, data)
-        
-        # Check if half_life is valid (not None) and meets conditions
-        if is_valid and half_life and rolling_window is not None:
-            rolling_window = int(max(1, min(max(half_life, 10), 50)))
-            
-            if rolling_window < 1:
-                # Exclude pair if rolling_window is invalid
-                rejected_pairs.append((stock_a, stock_b, "Invalid rolling window"))
-                logging.warning(f"Rejected pair: {stock_a}-{stock_b} (Invalid rolling window)")
-                continue
-            
-            valid_pairs.append((stock_a, stock_b, half_life))
-            logging.info(f"Validated pair: {stock_a}-{stock_b} (Half-life: {half_life})")
-        else:
-            # Exclude pair if half_life is None or other validation issues
-            reason = reason or "None half-life"
-            rejected_pairs.append((stock_a, stock_b, reason))
-            logging.warning(f"Rejected pair: {stock_a}-{stock_b} ({reason})")
+    # Check if validation results already exist
+    if os.path.exists(VALIDATION_RESULTS_PATH):
+        logging.info("Loading existing validation results.")
+        validation_results = pd.read_csv(VALIDATION_RESULTS_PATH)
 
-    # Save validation results
-    validation_results = pd.DataFrame({
-        'stock_a': [p[0] for p in valid_pairs + rejected_pairs],
-        'stock_b': [p[1] for p in valid_pairs + rejected_pairs],
-        'status': ['valid' for _ in valid_pairs] + ['rejected' for _ in rejected_pairs],
-        'reason/half_life': [p[2] for p in valid_pairs + rejected_pairs]
-    })
-    validation_results.to_csv('results/pair_validation_results.csv', index=False)
+        # Filter valid and rejected pairs
+        valid_pairs = validation_results[validation_results['status'] == 'valid'][['stock_a', 'stock_b', 'reason/half_life']].values.tolist()
+        rejected_pairs = validation_results[validation_results['status'] == 'rejected'][['stock_a', 'stock_b', 'reason/half_life']].values.tolist()
+
+    else:
+        logging.info("Validation results not found. Starting validation process.")
+        valid_pairs = []
+        rejected_pairs = []
+
+        # First pass: validate all pairs
+        for _, row in cointegrated_pairs.iterrows():
+            stock_a, stock_b = row['stock_a'], row['stock_b']
+            data = process_stock_data([stock_a, stock_b], fill_method='ffill')
+
+            is_valid, reason, half_life, rolling_window = validate_pair(stock_a, stock_b, data)
+
+            # Check if half_life is valid (not None) and meets conditions
+            if is_valid and half_life and rolling_window is not None:
+                rolling_window = int(max(1, min(max(half_life, 10), 50)))
+
+                if rolling_window < 1:
+                    # Exclude pair if rolling_window is invalid
+                    rejected_pairs.append((stock_a, stock_b, "Invalid rolling window"))
+                    logging.warning(f"Rejected pair: {stock_a}-{stock_b} (Invalid rolling window)")
+                    continue
+
+                valid_pairs.append((stock_a, stock_b, half_life))
+                logging.info(f"Validated pair: {stock_a}-{stock_b} (Half-life: {half_life})")
+            else:
+                # Exclude pair if half_life is None or other validation issues
+                reason = reason or "None half-life"
+                rejected_pairs.append((stock_a, stock_b, reason))
+                logging.warning(f"Rejected pair: {stock_a}-{stock_b} ({reason})")
+
+        # Save validation results to file
+        validation_results = pd.DataFrame({
+            'stock_a': [p[0] for p in valid_pairs + rejected_pairs],
+            'stock_b': [p[1] for p in valid_pairs + rejected_pairs],
+            'status': ['valid' for _ in valid_pairs] + ['rejected' for _ in rejected_pairs],
+            'reason/half_life': [p[2] for p in valid_pairs + rejected_pairs]
+        })
+        os.makedirs(os.path.dirname(VALIDATION_RESULTS_PATH), exist_ok=True)
+        validation_results.to_csv(VALIDATION_RESULTS_PATH, index=False)
+        logging.info(f"Validation results saved to {VALIDATION_RESULTS_PATH}.")
 
     # Proceed with analysis only for valid pairs
     if valid_pairs:
@@ -599,7 +640,7 @@ if __name__ == "__main__":
             for future in futures:
                 stock_a, stock_b, half_life = futures[future]
                 logging.info(f"Running Monte Carlo simulations for pair: {stock_a}, {stock_b}")
-                
+
                 simulations = future.result()
 
                 if simulations.empty:
@@ -618,7 +659,6 @@ if __name__ == "__main__":
                     z_exit_threshold=best_result['z_exit_threshold'],
                     stop_loss_threshold=best_result['stop_loss_threshold']
                 )
-
 
                 all_final_results.append({
                     'Stock A': stock_a,
@@ -640,6 +680,7 @@ if __name__ == "__main__":
                     'Hedge Ratio': hedge_ratio,
                     'Half Life': half_life
                 })
+
 
     # Save and plot results as before
     if all_final_results:
