@@ -1,49 +1,72 @@
 import pandas as pd
-import glob
 import os
-import re
+import ast
 
 # Load the file
-all_results_df = pd.read_csv('/Users/icarus/Desktop/QuantatitiveTradingStrategies/Pairs Trading/results/cointegrated_pairs_results.csv')
+file_path = '/Users/icarus/Desktop/QuantatitiveTradingStrategies/Pairs Trading/results/cointegrated_pairs_results.csv'
+try:
+    all_results_df = pd.read_csv(file_path)
+except FileNotFoundError:
+    raise FileNotFoundError(f"File not found: {file_path}")
 
-# Select only the required columns
+# Required columns
 required_columns = [
     'Stock A', 'Stock B', 'Z Entry Threshold A', 'Z Entry Threshold B',
     'Z Exit Threshold', 'Stop Loss Threshold', 'Final Cumulative Returns',
     'Final Sharpe Ratio', 'Final Sortino Ratio', 'Final Max Drawdown', 
-    'Total Trades', 'Win Rate', 'Profit Factor', 'Average Profit', 'Average Loss', 'Hedge Ratio', 'Half Life'
+    'Total Trades', 'Win Rate', 'Profit Factor', 'Average Profit', 'Average Loss'
 ]
 
-summary_table = all_results_df[required_columns]  # Retain only the specified columns
+# Check if required columns are present
+missing_columns = [col for col in required_columns if col not in all_results_df.columns]
+if missing_columns:
+    raise ValueError(f"Missing columns in input file: {missing_columns}")
 
-# Filter for pairs with Sharpe Ratio > 1.2
-summary_table = summary_table[summary_table['Final Sharpe Ratio'] > 1.1]
+# Extract relevant data
+summary_table = all_results_df[required_columns]
 
-# Filter for pairs where Average Profit > Average Loss, profit factor > 2, and winrate > 60%
-summary_table = summary_table[summary_table['Average Profit'] > summary_table['Average Loss']]
-summary_table = summary_table[summary_table['Profit Factor'] > 1]
-summary_table = summary_table[summary_table['Win Rate'] > 0.70]
+# Function to extract numerical values from strings
+def extract_first_value(value):
+    try:
+        value = str(value).strip()
+        if value.startswith("(") and value.endswith(")"):
+            return float(ast.literal_eval(value)[0])  # Convert tuple-like string
+        return float(value)  # Handle normal numeric values
+    except (ValueError, SyntaxError, TypeError) as e:
+        print(f"Warning: Failed to process value {value}: {e}")
+        return None
 
+# Apply to specified columns
+columns_to_convert = [
+    'Final Cumulative Returns', 'Final Sharpe Ratio', 'Final Sortino Ratio', 
+    'Final Max Drawdown', 'Total Trades', 'Profit Factor', 
+    'Average Profit', 'Average Loss'
+]
+for col in columns_to_convert:
+    summary_table[col] = summary_table[col].apply(extract_first_value)
 
-#Round the numeric columns to 2 decimal places
-numeric_columns = ['Z Entry Threshold A', 'Z Entry Threshold B',
-    'Z Exit Threshold', 'Stop Loss Threshold', 'Final Cumulative Returns',
-    'Final Sharpe Ratio', 'Final Sortino Ratio', 'Final Max Drawdown', 
-    'Total Trades', 'Win Rate', 'Profit Factor', 'Average Profit', 'Average Loss', 'Hedge Ratio', 'Half Life'
+# Filter rows based on conditions
+summary_table = summary_table[summary_table['Final Sharpe Ratio'] > 1.5]
+summary_table = summary_table[
+    (summary_table['Average Profit'] > summary_table['Average Loss']) &
+    (summary_table['Profit Factor'] > 2) &
+    (summary_table['Win Rate'] > 0.70) &
+    (summary_table['Final Cumulative Returns'] > 1)
 ]
 
-# Using .loc to avoid SettingWithCopyWarning
-summary_table.loc[:, numeric_columns] = summary_table[numeric_columns].round(2)
+# Round numeric columns
+numeric_columns = [
+    'Z Entry Threshold A', 'Z Entry Threshold B', 'Z Exit Threshold',
+    'Stop Loss Threshold', 'Final Cumulative Returns', 'Final Sharpe Ratio',
+    'Final Sortino Ratio', 'Final Max Drawdown', 'Total Trades', 
+    'Win Rate', 'Profit Factor', 'Average Profit', 'Average Loss'
+]
+summary_table[numeric_columns] = summary_table[numeric_columns].round(2)
 
-# Step 9: Filter out rows with inf or 0 values in the numeric columns
+# Remove rows with inf or 0 in numeric columns
 summary_table = summary_table[~summary_table[numeric_columns].isin([float('inf'), 0]).any(axis=1)]
 
-# Step 10: Display the summary table with formatted floats
-pd.set_option('display.float_format', '{:.2f}'.format)
-
-# Step 11: Print the final summary table
-print(summary_table)
-
-filename = "results_summary_filtered.csv"
-path = os.path.join(os.getcwd(), 'Pairs Trading/signals/' + filename)
-summary_table.to_csv(path, index=False)
+# Save filtered data
+output_path = os.path.join(os.getcwd(), 'Pairs Trading/signals/results_summary_filtered.csv')
+summary_table.to_csv(output_path, index=False)
+print(f"Filtered results saved to {output_path}")

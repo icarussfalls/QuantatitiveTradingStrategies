@@ -20,7 +20,7 @@ class FloorsheetScrapper:
         options.add_argument('--headless')  # Run in headless mode for speed
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument(f'user-agent={ua.random}')
-        service = Service("/Users/icarus/Downloads/chromedriver-mac-arm64 2/chromedriver")  # Adjust the path
+        service = Service("/Users/icarus/Downloads/chromedriver/chromedriver")  # Adjust the path
         self.driver = webdriver.Chrome(service=service, options=options)
         self.url = url
         self.driver.get(url)
@@ -154,6 +154,6 @@ if __name__ == '__main__':
     symbols = ['HRL']  # Add more stock symbols as needed
 
     end_date = datetime.today()
-    start_date = end_date - timedelta(days=30)  # One month back
+    start_date = end_date - timedelta(days=5)  # Time period to retrive data
 
     collect_data(symbols, url, start_date, end_date)
